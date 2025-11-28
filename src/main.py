@@ -235,8 +235,13 @@ class WVGParser:
         # Parse Generic Parameters
         params.generic_params = self.parse_generic_parameters()
         
-        # Parse Coordinate System
-        # TODO: Determine if compact or flat mode
+        # Parse Coordinate System Parameters
+        params.coordinate_mode = self.parse_coordinate_mode()
+        
+        if params.coordinate_mode == CoordinateMode.COMPACT:
+            params.compact_params = self.parse_compact_coordinate_params()
+        else:
+            params.flat_params = self.parse_flat_coordinate_params()
         
         return params
     
@@ -310,6 +315,158 @@ class WVGParser:
         
         return params
     
+    def parse_coordinate_mode(self) -> CoordinateMode:
+        mode_bit = self.reader.read_bit()
+        return CoordinateMode(mode_bit)
+    
+    def parse_compact_coordinate_params(self) -> CompactCoordinateParams:
+        """
+        Parse Compact Coordinate Parameters.
+        
+        Structure:
+        - aspect_ratio: variable bits (2-4 bits)
+        - [display_orientation: 1 bit if aspect_ratio != 1:1]
+        - trans_xy_bits: 2 bits (00=5, 01=6, 10=7, 11=8 bits)
+        - parameters_x: max_x_bits (2 bits) + coordinate_parameters
+        - parameters_y: max_y_bits (2 bits) + coordinate_parameters
+        - redefine_resolution_hint: 1 bit
+        """
+        params = CompactCoordinateParams()
+        
+        # Parse aspect ratio (variable length)
+        first_bits = self.reader.read_bits(2)
+        if first_bits == 0b00:
+            params.aspect_ratio = AspectRatio.RATIO_1_1
+            # No display orientation for 1:1
+        elif first_bits == 0b01:
+            params.aspect_ratio = AspectRatio.RATIO_4_3
+            params.orientation = Orientation(self.reader.read_bit())
+        elif first_bits == 0b10:
+            params.aspect_ratio = AspectRatio.RATIO_16_9
+            params.orientation = Orientation(self.reader.read_bit())
+        elif first_bits == 0b11:
+            # Extended aspect ratio - read 2 more bits
+            ext_bits = self.reader.read_bits(2)
+            if ext_bits == 0b00:
+                params.aspect_ratio = AspectRatio.RATIO_64_27
+            elif ext_bits == 0b01:
+                params.aspect_ratio = AspectRatio.RATIO_256_81
+            elif ext_bits == 0b10:
+                params.aspect_ratio = AspectRatio.RATIO_1024_243
+            else:  # 0b11
+                params.aspect_ratio = AspectRatio.RATIO_4096_729
+            params.orientation = Orientation(self.reader.read_bit())
+        
+        print(f"  Aspect Ratio: {params.aspect_ratio.name}")
+        if hasattr(params, 'orientation') and params.orientation is not None:
+            print(f"  Orientation: {'Portrait' if params.orientation == Orientation.PORTRAIT else 'Landscape'}")
+        
+        # TransXYInBits1 (2 bits): 00=5, 01=6, 10=7, 11=8 bits
+        trans_xy_code = self.reader.read_bits(2)
+        params.trans_xy_bits = trans_xy_code + 5
+        print(f"  Trans XY Bits: {params.trans_xy_bits}")
+        
+        # Parameters X-1: MaxXInBits1 (2 bits) + coordinate_parameters
+        max_x_code = self.reader.read_bits(2)
+        # 00=15, 01=31, 10=63, 11=127 grid lines
+        params.max_x_bits = max_x_code + 4  # 4-7 bits to encode coordinates
+        print(f"  Max X Bits: {params.max_x_bits} ({[15, 31, 63, 127][max_x_code]} grid lines)")
+        
+        # Coordinate parameters for X
+        coord_param_x = self.reader.read_bits(2)
+        if coord_param_x != 0b00:
+            # Has peak - first 2 bits are peak value (01=1.5, 10=2.0, 11=2.5)
+            params.peak_x = PeakDescription()
+            params.peak_x.peak_value = {0b01: 1.5, 0b10: 2.0, 0b11: 2.5}.get(coord_param_x, 1.0)
+            # Peak position (4 bits, 0-12)
+            pos_code = self.reader.read_bits(4)
+            params.peak_x.peak_position = pos_code / 12.0 if pos_code <= 12 else 0.5
+            # Peak width (2 bits)
+            width_code = self.reader.read_bits(2)
+            params.peak_x.peak_width = {0b00: 0.3, 0b01: 0.4, 0b10: 0.5, 0b11: 0.6}.get(width_code, 0.4)
+            print(f"  Peak X: value={params.peak_x.peak_value}, pos={params.peak_x.peak_position:.3f}, width={params.peak_x.peak_width}")
+        
+        # Parameters Y-1: MaxYInBits1 (2 bits) + coordinate_parameters
+        max_y_code = self.reader.read_bits(2)
+        params.max_y_bits = max_y_code + 4
+        print(f"  Max Y Bits: {params.max_y_bits} ({[15, 31, 63, 127][max_y_code]} grid lines)")
+        
+        # Coordinate parameters for Y
+        coord_param_y = self.reader.read_bits(2)
+        if coord_param_y != 0b00:
+            params.peak_y = PeakDescription()
+            params.peak_y.peak_value = {0b01: 1.5, 0b10: 2.0, 0b11: 2.5}.get(coord_param_y, 1.0)
+            pos_code = self.reader.read_bits(4)
+            params.peak_y.peak_position = pos_code / 12.0 if pos_code <= 12 else 0.5
+            width_code = self.reader.read_bits(2)
+            params.peak_y.peak_width = {0b00: 0.3, 0b01: 0.4, 0b10: 0.5, 0b11: 0.6}.get(width_code, 0.4)
+            print(f"  Peak Y: value={params.peak_y.peak_value}, pos={params.peak_y.peak_position:.3f}, width={params.peak_y.peak_width}")
+        
+        # Redefine resolution hint (1 bit)
+        params.redefine_resolution_hint = bool(self.reader.read_bit())
+        print(f"  Redefine Resolution Hint: {params.redefine_resolution_hint}")
+        
+        return params
+    
+    def parse_flat_coordinate_params(self) -> FlatCoordinateParams:
+        """
+        Parse Flat Coordinate Parameters.
+        
+        Structure:
+        - drawing_width: 16 bits
+        - has_height: 1 bit (0 = height equals width, 1 = explicit height follows)
+        - [drawing_height: 16 bits if has_height]
+        - max_x_bits: 4 bits (number of bits to encode X coordinate)
+        - max_y_bits: 4 bits (number of bits to encode Y coordinate)
+        - xy_all_positive: 1 bit (0 = not all positive, 1 = all positive)
+        - trans_xy_bits: 4 bits (bits for translation and transform center)
+        - num_points_bits: 4 bits (bits to encode number of points)
+        - offset_x_bits_level1: 4 bits
+        - offset_y_bits_level1: 4 bits
+        - offset_x_bits_level2: 4 bits
+        - offset_y_bits_level2: 4 bits
+        """
+        params = FlatCoordinateParams()
+        
+        # Drawing width (16 bits)
+        params.drawing_width = self.reader.read_bits(16)
+        
+        # Has explicit height (1 bit)
+        has_height = self.reader.read_bit()
+        if has_height:
+            params.drawing_height = self.reader.read_bits(16)
+        else:
+            params.drawing_height = params.drawing_width
+        
+        # Max X bits (4 bits)
+        params.max_x_bits = self.reader.read_bits(4)
+        
+        # Max Y bits (4 bits)
+        params.max_y_bits = self.reader.read_bits(4)
+        
+        # XY all positive (1 bit)
+        params.xy_all_positive = bool(self.reader.read_bit())
+        
+        # Trans XY bits (4 bits)
+        params.trans_xy_bits = self.reader.read_bits(4)
+        
+        # Num points bits (4 bits)
+        params.num_points_bits = self.reader.read_bits(4)
+        
+        # Offset X bits level 1 (4 bits)
+        params.offset_x_bits_level1 = self.reader.read_bits(4)
+        
+        # Offset Y bits level 1 (4 bits)
+        params.offset_y_bits_level1 = self.reader.read_bits(4)
+        
+        # Offset X bits level 2 (4 bits)
+        params.offset_x_bits_level2 = self.reader.read_bits(4)
+        
+        # Offset Y bits level 2 (4 bits)
+        params.offset_y_bits_level2 = self.reader.read_bits(4)
+        
+        return params
+    
     def parse_character_size_wvg(self) -> CharacterSizeWVG:
         """
         Parse Character Size WVG.
@@ -355,19 +512,19 @@ class WVGParser:
     
     def _parse_char_size_elements(self, header: CharacterSizeWVGHeader) -> List[WVGElement]:
         """
-        Parse Character Size WVG elements.
+        Parse character size WVG elements.
         
-        Element type is determined by prefix code based on which elements
-        are present (from header flags):
-        - If only polyline: no type code needed, all are polylines
-        - If 2 types: 1 bit prefix (0 or 1)
-        - If 3 types: variable prefix (0, 10, 11)
-        
-        Elements present can be: polyline, circular polyline, bezier polyline, reuse
+        Structure:
+        - Number of line elements: 7 bits (max 127 elements)
+        - Line elements: each with header + element data
         """
         elements = []
         
-        # Determine which element types are available
+        # Parse number of elements (7 bits)
+        num_elements = self.reader.read_bits(7)
+        print(f"    Number of elements: {num_elements}")
+        
+        # Build list of available element types based on header flags
         available_types = []
         if header.has_polyline:
             available_types.append('polyline')
@@ -375,48 +532,78 @@ class WVGParser:
             available_types.append('circular')
         if header.has_bezier_polyline:
             available_types.append('bezier')
-        if header.relative_use:
-            available_types.append('reuse')
         
-        print(f"    Available element types: {available_types}")
+        print(f"    Available types: {available_types}")
         
-        # Calculate bits needed for element type coding
-        num_types = len(available_types)
-        if num_types == 0:
-            print("    No element types available!")
-            return elements
-        
-        element_count = 0
-        max_elements = 100  # Safety limit
-        
-        try:
-            while element_count < max_elements:
-                # Check if we have enough data left
-                remaining_bits = (len(self.data) - self.reader.byte_pos) * 8 - self.reader.bit_pos
-                if remaining_bits < 4:  # Minimum bits for any element
-                    print(f"    End of data (remaining bits: {remaining_bits})")
-                    break
-                
-                # Parse element type
-                element_type = self._parse_char_element_type(available_types)
-                if element_type is None:
-                    break
-                
-                print(f"    Element {element_count}: type={element_type}")
-                
-                # Parse the element based on type
-                element = self._parse_char_element(element_type, header)
-                if element:
-                    elements.append(element)
-                    element_count += 1
+        for i in range(num_elements):
+            print(f"    Element {i}:")
+            
+            # Parse line header
+            element_type = self._parse_line_element_type(available_types)
+            print(f"      Type: {element_type}")
+            
+            # Parse point mode if relative_use is enabled
+            point_mode_absolute = True
+            offset_bit_use = None
+            if header.relative_use:
+                point_mode_bit = self.reader.read_bit()
+                if point_mode_bit == 0:
+                    point_mode_absolute = True
                 else:
-                    break
-                    
-        except EOFError:
-            print(f"    Reached end of data after {element_count} elements")
+                    point_mode_absolute = False
+                    # Parse offset bit use
+                    offset_bit_use = self.reader.read_bits(2)  # TODO: Verify bit count
+                print(f"      Point mode: {'absolute' if point_mode_absolute else f'relative (offset bits: {offset_bit_use})'}")
+            
+            # Parse the element
+            element = self._parse_char_element(element_type, header)
+            if element:
+                elements.append(element)
         
-        print(f"    Total elements parsed: {len(elements)}")
         return elements
+    
+    def _parse_line_element_type(self, available_types: List[str]) -> Optional[str]:
+        """
+        Parse line element type code for character size WVG.
+        
+        Encoding based on line element mask:
+        - 1 type (mask 100, 010, or 001): no code needed
+        - 2 types (mask 011, 110, or 101): 1 bit
+          - 0 for first element with mask value 1
+          - 1 for second element with mask value 1
+        - 3 types (mask 111): 2 bits
+          - 00 for polyline
+          - 01 for circular polyline
+          - 10 for Bezier polyline
+        """
+        num_types = len(available_types)
+        
+        if num_types == 0:
+            return None
+        
+        if num_types == 1:
+            # No code needed
+            return available_types[0]
+        
+        if num_types == 2:
+            # 1 bit: 0=first, 1=second
+            bit = self.reader.read_bit()
+            return available_types[bit]
+        
+        if num_types == 3:
+            # 2 bits: 00=polyline, 01=circular, 10=bezier
+            code = self.reader.read_bits(2)
+            if code == 0b00:
+                return 'polyline'
+            elif code == 0b01:
+                return 'circular'
+            elif code == 0b10:
+                return 'bezier'
+            else:
+                # 11 is not used according to spec
+                return available_types[0]
+        
+        return None
     
     def _parse_char_element_type(self, available_types: List[str]) -> Optional[str]:
         """
