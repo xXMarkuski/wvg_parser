@@ -1,0 +1,2118 @@
+﻿3GPP TS 23.040 version 16.0.0 Release 16 177 ETSI TS 123 040 V16.0.0 (2020-07)
+
+Annex G (normative):
+WVG (Wireless Vector Graphics) data format
+WVG (Wireless Vector Graphics) is a compact binary data format for vector graphics. WVG data is represented by a bit
+stream, composed of a header, codec parameters and graphical elements. The bit representation of the drawing and
+contained graphical elements is designed such that the bit stream can be optimized for smallest possible size.
+
+G.1 Introduction
+
+G.1.1 Standard and Character Size WVG elements
+A Standard WVG element is defined by the complete WVG specification. Using a set of the WVG specification with a
+set of default values, a simplified vector graphics can be used to represent a simple and small vector graphics or glyph.
+Character Size WVG elements can be included in normal text to represent a handwritten character or symbols that are
+not supported by character coding system and the font library.
+
+G.1.2 Compression methods
+A combination of compression methods is used in the WVG to achieve the best compression ratio for simple vector
+graphics and animations. They include:
+
+- switchable linear or non-linear coordination system: when graphical elements in a drawing are not evenly
+distributed, the representation of coordinates can be optimized using a non-linear coordinate system (uneven
+coordinates)
+
+- bit packing: variable number of bits to represent a number. The number of bits used in WVG can vary from 1
+bit to 16 bits.
+
+- local envelope: use a dedicated coordinate system to describe elements in a small area using relatively small
+coordinate numbers
+
+- variable resolution: in coordinates, sizes, angles, scale and etc, different resolutions can be used for a graphical
+element to save the number of bits needed for representing a value.
+
+- palettes: color and element ID can be mapped using a palette defined in the drawing header. This also saves the
+number of bits for representing a color value and an element ID.
+
+- default values: many values can be omitted to use default values. E.g. when no color scheme is defined, the data
+describes a mono drawing
+
+- default animation timing: in addition to standard time based animation, WVG uses a simplified animation
+model. In Simple Animation mode, no timing is needed for describing animations. Instead, a cycle is defined to
+describe the timing for these animations.
+
+G.1.3 Coordinate Systems
+There are two coordinate systems used in WVG, namely Compact Coordinate System and Flat Coordinate System.
+
+G.1.3.1 Compact Coordinate System
+
+In compact coordinate system, a drawing area is defined as rectangle area called envelope. There are two types of
+envelopes, global envelope and local envelope. The global envelope is a base area in which the drawing is contained.
+There is only one global envelope. A local envelope is a square area completely or partially within the global envelope.
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 178 ETSI TS 123 040 V16.0.0 (2020-07)
+
+There is no specific global envelope size specified in the data format. The physical display size is decided at rendering
+time.
+
+The aspect ratio and orientation are defined in the data header and should be maintained when the drawing is displayed.
+
+Aspect ratios include 1:1, 4:3, 16:9 up to 1024: 729 (height:width), in both portrait and landscape orientation. Aspect
+ratio for Characters Size WVG elements only has landscape orientation.
+
+ (0, 0)
+
+(0, 0)
+
+Local Envelope
+
+(1, 1)
+Global Envelope
+
+(1, 1)
+
+
+
+
+
+In Compact Coordinate System, coordinates are restricted to certain positions which are the cross points of a grid. The
+grid is defined in the WVG data header, set by a group of parameters. The grid lines along with x axis or y axis may be
+unevenly distributed.
+
+The global grid can be described using a curve shown above.
+
+ Valley Width Peak Width Valley Width
+
+Peak value
+
+Valley value Valley value X Axis
+
+1.0
+Peak Position
+
+
+
+
+
+There are one peak and two valleys in the curve. The definition of the curve is:
+
+- peak position: the central position of a peak;
+
+- peak value: a value equal or larger than 1,0;
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 179 ETSI TS 123 040 V16.0.0 (2020-07)
+
+- peak width: a value less than 1,0.
+
+All valleys should have the same value.
+
+The total area enclosed by the curve and the x-axis from 0,0 to 1,0 is always equating to 1,0.
+
+The curve can be uniquely defined by peak position, peak value and peak width. Once the parameters are determined,
+other values such as valley value can be calculated. Once a curve is given, grid line positions can be calculated
+according to the following function:
+
+Xk k
+ d (x)dx =
+0 n −1
+
+Where Xk is the position of the kth grid line, where n is total number of grid lines. d(x) is the curve function described in
+the present document.
+
+In standard WVG, the curve parameters are preset as follows.
+
+Variable parameters:
+
+- number of grid lines: 15, 31, 63 or 127;
+
+- peak value: 1,0, 1,5, 2,0 and 2,5;
+
+- peak position: 13 options from 0,0 (0/12), 0,083333 (1/12), 0,166667 (2/12) to 1,0 (12/12);
+
+- peak width: 0,3, 0,4, 0.5 and 0,6.
+
+When a portion of a peak exceeds the global envelope only the part within the global envelope is valid.
+
+For Character Size WVG or glyph, the parameters are set as follows.
+
+Predefined parameters:
+
+- peak width: 0,4.
+
+Variable parameters:
+
+- number of grid lines: 7, 15, 31 or 63;
+
+- peak value: 1,0 or 1,5;
+
+- peak position: 0,3333 (1/3), 0,5, 0,6667 (2/3).
+
+When using relative coordinates in Compact Coordinate System (refer to clause G 1.3.3), some elements may be
+specified with specific resolution, which is independent of the global resolution. There are 8 predefined resolutions
+available for "re-definition resolution", there are 1/27, 1/38, 1/48, 1/64, 1/85, 1/128 and 1/160 of the length of the
+shorter global envelope edge. Re-definition of resolution only applies to elements in global scope.
+
+G.1.3.2 Flat Coordinate System
+
+The Flat Coordinate System is a 16 bit signed coordinate system with the top left coordinate of the screen being defined
+as (x=0,y=0) and the bottom right coordinate being described as (x=2^15, y = 2^15). Note that this expresses the
+dynamic range of the coordinate system, however it does not mean that all drawings are of this size.
+
+
+
+
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 180 ETSI TS 123 040 V16.0.0 (2020-07)
+
+G.1.3.3 Coordinate values
+
+Coordinate values may be represented using two methods: absolute coordinate and relative coordinate.
+
+Absolute Coordinate: an absolute coordinate is a pair of x and y coordinate number. In WVG Compact Coordinate
+System, absolute coordinate values are the coordinate grid line numbers and are always positive.
+
+Relative Coordinate: the relative coordinate is used only in lines and transform. If the start point is defined by an
+absolute coordinate, subsequent points can be described by relative coordinates, which are relative grid units from the
+previous point. A relative coordinate is signed, and it may be positive or negative. A relative coordinate may be used in
+both global and local coordinate systems. A relative coordinate may exceed the scope of the local envelope that defines
+the start point of the line.
+
+G.1.4 Color schemes
+WVG supports the following color schemes.
+
+- Black and white (2 Colors): black and white color.
+
+- 2-bit grayscales: four grayscales are defined as (0,0,0), (85,85,85), (170,170,170) and (255,255,255) in 24-bit
+RGB color format.
+
+- 4 default colors.
+
+- 6-bit RGB color: it is similar to 24-bit RGB color definition but uses only 2 bits to represent a single color, in
+which value 0, 1, 2 and 3 represent 8-bit color value 0, 85, 170 and 255 respectively.
+
+- 6-bit RGB color using 2nd palette.
+
+- 8-bit websafe color.
+
+- 12-bit and 24-bit RGB color.
+
+There are 2 optional drawing pens in WVG, stroke pen and fill pen. Stroke pen and fill pen can be specified with one of
+the colors defined using the scheme. When the stroke pen is not defined, BLACK should be used for strokes. When the
+fill pen is not defined, no fill should be applied.
+
+G.1.5 Rendering model
+WVG uses painter model. The elements appears in the later position in the WVG bit stream will overrides the
+overlapped portion of the elements which appear in the front in the bit stream.
+
+G.2 Graphical elements
+WVG defines a set of graphical and animation elements. Among them, line, shape and text elements are the building
+blocks to form a drawing. These elements can be transformed, grouped and animated. There are also special elements
+that are auxiliary.
+
+G.2.1 Line elements
+There are 3 types of lines: polyline, circular polyline and bezier polyline. A polyline can represent a dot when there is
+only a start point defined.
+
+A line element has its reference point at the starting point. A reference point of an element specifies the location of the
+element.
+
+G.2.1.1 Polyline
+
+Polyline is a set of straight lines connecting a sequence of points. When there is only one point, it is defined as a dot.
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 181 ETSI TS 123 040 V16.0.0 (2020-07)
+
+G.2.1.2 Circular Polyline
+
+Circular Polyline is a line that contains at least one circular curve segment. The curve segment connects two adjacent
+points by a circular arc. The curve segment is determined by the two adjacent points and a curve offset (the
+perpendicular distance from the center of the line connecting the adjacent points to the circular arc).
+
+Curve offset
+
+Center
+point
+
+
+
+
+
+Curve offset values are within the range – 0,5 to 0,5, inclusive. A value of 0,5 or – 0,5 identifies that the curve offset
+equals half of length of the connecting line. The value indicates that the curve is close to a half circle. A positive value
+indicates that the curve is at the left side of the base line viewed from the curve direction. A negative value indicates
+that the curve is at the right side of the base line viewed from the curve direction.
+
+G.2.1.3 Bezier Polyline
+
+A Bezier Polyline contains one or more off curve control points in between on curve points. Bezier curves can be filled
+to create curved shapes and are common in generalized font representations.
+
+All line elements have direction from the start point to the end point.
+
+Color fill may apply to a line. Refer to clause G.2.1.4.
+
+G.2.1.4 Auto-closure of a line
+
+When a line is specified with the fill attribute, the line is considered as a closed line, which connects the start point and
+the end point using a straight line. The enclosed area of a closed line can be used for color fill.
+
+The enclosed area is based on nonzero fill rule. Following are two examples in which the light color indicates the
+enclosed area.
+
+
+
+
+
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 182 ETSI TS 123 040 V16.0.0 (2020-07)
+
+G.2.2 Polygon elements
+Polygon elements are closed representations of polyline, circular polyline and Bezier polyline elements. Polygons may
+have separate line and fill colors or may not be filled at all.
+
+Polygon elements use the nonzero fill rule for enclosed areas and can be used for color file.
+
+A polygon element has its reference point at the starting point.
+
+G.2.3 Simple shape elements
+Simple Shapes are rectangles and ellipses. A simple shape is defined by width, height, center point, and angle of
+rotation. The angle parameter defines how much the shape should be rotated about its center from a horizontal axis
+drawn through its center.  Note that angle units are specified in the main header.
+
+G.2.3.1 Ellipse
+
+Ellipses are defined by their major axis, minor axis, center and angle of rotation. Circles are considered a special case of
+ellipse in which the major and minor axis are the same length.
+
+G.2.3.2 Rectangle
+
+Rectangles are represented by their center, width, height, and rotation angle. Squares are considered special rectangles
+in which the width and height are identical.
+
+When the "round corner" indicator is set, the corner of the rectangle should be rounded. There is no specific radius of
+the round corner is defined. The recommended radius of the rounded corner should be 20% of the length of the shorter
+edge of the rectangle or the square.
+
+
+
+
+
+A simple shape element has its reference point at its center.
+
+G.2.4 Special shape elements
+There are 3 types of special shapes. These shapes are Regular Polygons, Stars, and Grids. Each shape has a reference
+point that determines its position for the purpose of transformations such as detailed in G2,8,1 and G,4. Shapes may
+have other parameters. These shapes include:
+
+- Regular polygon: a regular polygon has equal length of all its edges. In its original position, the bottom edge of
+the regular polygon should be aligned horizontally. A rotate angle can be optionally specified. Regular polygon
+parameters include the number of vertex, the diameter of the reference circle and angle of rotation.
+
+
+
+
+
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 183 ETSI TS 123 040 V16.0.0 (2020-07)
+
+- Star: a star is defined by the number of corner vertex, the diameter of the reference circle, vertex angle and
+angle of rotation. In its original position, the bottom edge, which formed by two vertexes of the star, should be
+aligned horizontally. A rotate angle can be optionally specified. Vertex angles are predefined as 0, 36, 60, 90
+degrees.
+
+vertex
+
+
+
+
+
+If the vertex angle is 0, a single line from center to vertex shall be drawn.
+
+- Grid: a grid is a number of evenly distributed perpendicular lines. Its parameters include height, width, angle
+and number of rows and columns (up to 16).
+
+A special shape element has its reference point at its center.
+
+G.2.5 Text element
+WVG supports text display inside the drawing. However it supports only the default font. To avoid inconsistency on
+different terminals, it is recommended to use vector based font. Text can be placed in a drawing with position, font size
+and rotate angle. Like other elements, text has attributes of line style, line color, line width. It can also be animated.
+
+Control characters are ignored when the text is rendered except for the CR (Carriage Return). The CR indicates the text
+followed by should be displayed at the next line position. Multi-line text should be left aligned. There is no character
+spacing and line spacing defined. Recommended character spacing is 10% of the text height. Recommended line
+spacing is 20% of the text height.
+
+A text element has its reference point at top-left corner.
+
+G.2.6 Group elements
+A set of elements can be grouped together.
+
+The Group element is used to mark the start and end of grouped elements. A group of elements starts with a Group
+element which has the end-group indicator off, followed by a list of  elements in the group, and ends with an Group
+element which has the end-group indicator on. Groups can be nested. Implementation must support at least 2 levels of
+nested group.
+
+Group (start)
+
+Element 1
+
+Element 2
+
+……
+
+Group (start)
+
+Element a
+
+Element b
+
+……
+
+Group (end)
+
+Element n
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 184 ETSI TS 123 040 V16.0.0 (2020-07)
+
+Element n+1
+
+…..
+
+Group (end)
+
+
+
+G.2.7 Reuse element
+Reuse element can be used to display an element or a group of elements with a transform and/or changed attributes
+and/or display an array. Whether a reuse element references a group or a basic element depends on the element type that
+the element_index in the reuse element points to. When reuse array is specified, the referenced element or group of
+elements is duplicated in rows and columns. The reference point of a reused array is at the reference point of the top-left
+element in the array.
+
+G.2.8 Animation elements
+There are two types of animation elements, Simple Animation Element and Standard Animation Element. In the data
+format, a simple animation element is followed by another element or a group element that the animation applies to. A
+standard animation element has pointer or index that points to another element or a group element.
+
+G.2.8.1 Simple animation elements
+
+Simple animation is defined for WVG. All animation timing is based on an "Animation Cycle". WVG animation is
+repetitive. After completion of playing one cycle, a subsequent cycle play commences immediately.
+
+There are two types of animation cycles defined, short cycle and long cycle. The time length of animation cycles are not
+defined. The time length of a long cycle should be twice the length of a short cycle. Recommended short cycle should
+collapses for 1 second and long cycle pay for 2 seconds.
+
+There are two types of animations.
+
+Visibility: an element can be visible or invisible during a specific cycle segments. A short cycle is divided into 4 time
+segments equally and a long cycle is divided into 8 time segments equally.
+
+In the following example, a visibility for short cycle animation is defined. The element to be animated will blink
+following the pattern defined in the Visibility field below. Bit 1 indicates the element should be displayed during the
+time segment. Bit 0 indicates it should not be displayed during the time segment.
+
+0 1 0 1
+
+
+
+In the following example, a visibility for long cycle animation is defined. The element to be animated will blink
+following the pattern defined in the visibility field below.
+
+1 0 1 0 1 1 1 1
+
+
+
+Round Rotation: an element can be rotated at clockwise or counter-clockwise directions.
+
+Transform: a start and an end transform can be applied to an element to describe the start and end position of a rotate, a
+scale, a translate animation or any combination of these action. When a transform element is omitted, it defaults to use
+the element's original position. An animation element must include at least one transform element. The animated
+element can also be a group to allow the animation action applied to a group of elements.
+
+In simple animation, a transform from start position to end position should be completed in one cycle. A bounced flag
+can be turned on to allow "bouncing" animation. A bounced transform transforms the element from start position to end
+position in one cycle.
+
+Transform in a short cycle:
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 185 ETSI TS 123 040 V16.0.0 (2020-07)
+
+
+
+ start status   end status
+
+Bounced Transform in a short cycle:
+
+
+
+ start      end   start
+ status      status  status
+
+Transform in a long cycle:
+
+
+
+start status         end status
+
+Bounced Transform in a long cycle:
+
+
+
+start     end     start
+status     status     status
+
+Visibility and transform animation can be applied to the same element.
+
+G.2.8.2 Standard Animation Element
+
+A Standard Animation Element contains animation information such as begin transform position, end transform
+position, begin color, end color, begin time, end time, etc. This allows one animation element to represent a series of
+related images, which results in significant compression of the data stream. The WVG player interpolates between the
+beginning state and end state to achieve animation.
+
+Animation elements are not allowed inside groups. Animation rotation ranges from 0 to 360 degrees in both clockwise
+and counter-clockwise directions.
+
+G.2.9 Frame Element
+Frame Element is as a marker of the start of a new frame. All elements before a frame element belong to previous
+frame. The delay between two frames is defined as an infinite time interval. This means says that once a frame marker
+is reached, the elements that have been displayed on the screen at this time will stay on the screen until the user requests
+that the next frame should be displayed. The idea is that one can have multiple "pages" of graphics, such as a multi-page
+cartoon. The user can then study the first page and when finish can press a button (or trigger some other event) to see
+the next page of the cartoon. The mechanism of the user event is not defined and is left up to the application developer.
+
+Here are parameters of a frame element:
+
+- keep last frame contents (or not). Zero means not keeping last frame contents, otherwise all the contents of
+previous frame will be kept.
+
+- fill in a new background color (or not). Zero means no new fill color is needed for this frame, otherwise a new
+background color will be used.
+
+- new background color.
+
+A frame element cannot appear in an element group. Reuse and animation elements can not apply to a frame element.
+
+G.2.10 Local Element
+This element defines the size and position of a local envelope.
+
+The local envelope is a square area whose top-left corner is defined as the origin for its x and y-axis. The number of
+grid lines are pre-defined to 7, 15, 31 and 63. The resolution is constant in a local grid which is pre-defined at 1/27,
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 186 ETSI TS 123 040 V16.0.0 (2020-07)
+
+1/32, 1/48, 1/64, 1/85, 1/128, and 1/160 of the local envelope width. Actual envelope size can be determined by number
+of grid lines and grid resolution. The position of the local envelope is determined by the local envelope origin that falls
+at a coordinate within the global envelope.
+
+A local element cannot appear in between another local start and local end element.
+
+G.2.11 Extended Element
+The Extended Element is defined to create objects which are not part of the base parsing level of defined objects in the
+present document and as a future proof method of expansion as defined by 3GPP technical committees. The extended
+element is intended for resolving problems in the current release. It may also be possible to use the extended element for
+potential enhancements in future releases. If the decoder encounters an extended element and the extended element type
+is unrecognized, it can gracefully skip this element by seeking past it in the bitstream, and continuing decoding at the
+next element in the bitstream.
+
+An extended element contains the size of the extended element, the extended element type, and a series of bytes
+representing the payload data. The size field represents the payload data size in bytes. Note that when reading the
+payload data, bit alignment should be assumed (not byte alignment).
+
+G.3 Element attributes
+Each element has a number of attributes such as pen color, fill color and line width used for stroking. The following
+elements Line, polygon, shape and text elements have the listed attributes.
+
+- Line width: 3 levels (fine, medium, thick). Default is fine.
+
+- Line style: 4 types (solid, dash, dot and reserved). Default is solid.
+
+- Pencolor and fill color.
+
+Line Width:
+
+There are 4 line width settings defined, namely "No Line", "Fine", "Medium" and "Thick". No specific width is defined
+for "Fine", "Medium" and "Thick". Recommended line widths are 1% or one pixel, 2% and 4% of the shorter dimension
+of the drawing. Line width for "Fine", "Medium" and "Thick" should be at least 1 pixel. E.g., in a 120 x 80 pixel screen,
+the line width may appear as 1 pixel, 2 pixels and 3 pixels.
+
+Line Type:
+
+Dash Line: a dash line should start with a solid segment of the line. The length of the solid segments is recommended to
+be 4 to 6 times of the line width. The space between two solid segments is recommended to be 3-4 times of the line
+width.
+
+
+
+
+
+Dotted Line: a dotted line is a string of circular dot on the path of a line. It is recommended that the diameter of rounded
+dot is same as the line width. The space between two dots shall be between 1 to 2 dot diameters.
+
+
+
+
+
+Line Cap:
+
+Line cap is Circular.
+
+Line Joint:
+
+Line joint is Round for line joint.
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 187 ETSI TS 123 040 V16.0.0 (2020-07)
+
+G.4 Element Transform
+The Transform element is used to scale, rotate, or translate any single element or group of elements. Multiple
+transforms may be applied in succession to any element by standard matrix concatenation. The transform element may
+be included in Group, Reuse and Animation elements and applied to line, polygon, shape, text and group elements.  The
+sequence of applying transform operations is scale->rotate->translate.
+
+G.5 Character Size WVG Element
+The character size WVG, or glyph is a subset variation of WVG. Character Size WVG uses a compact coordinate
+system with a half resolution global grid (7, 15, 31 and 63 grid lines), default color (monochrome), line elements
+(polyline, circular polyline and Bezier polyline) and a simplified drawing header.
+
+G.6 Data Format BNF
+The following notation is used in the present document for BNF syntax:
+
+< > Enclose term names
+| Separates alternatives (exclusive OR)
+[ ] Square brackets enclose optional items in syntax descriptions.
+{ } {} Term enclosed is used zero or more times
+() () Enclose groups of alternative terms
+… From … to
+; Start with comments
+0 Bit value 0 in bit stream
+1 Bit value 1 in bit stream
+‘ ‘ Terminator described by enclosed text
+
+
+Notes for reading the BNF:
+
+NOTE 1: The bit value appearing at the left in the BNF indicates it is arranged in the front in the bit stream.
+
+NOTE 2: Notation 00…11 is equivalent to ( 00 | 01 | 10 | 11).
+
+NOTE 3: Notation ( 0 | 1 <val> ) is used in the BNF in many occurrences for optionally omitting a value. In this
+example, it indicates either a specific value <val> can be used, or it can be omitted when default value
+can be used. The bit value 0 or 1 indicates if <val> is specified.
+
+NOTE 4: Signed integers use Two's Complement representation.
+
+
+
+WVG (Wireless Vector Graphics)
+
+<WVG> ::= ( 0 <character size WVG>)  | ( 1 <standard WVG> )
+
+<character size WVG> ::= <character size WVG header> <line elements>
+
+<standard WVG> ::= <standard WVG header> <elements>
+
+
+
+Common
+
+<text code mode> ::= 0 | 1   ; 0 for 7-bit GSM character set. 1 for 16-bit UCS-2
+
+<string length> ::= ‘unsigned 8-bit integer’ ; number of GSM or UCS-2 characters
+       ; GSM extension characters are counted as one character
+       ; <string length> = 0 means null string
+
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 188 ETSI TS 123 040 V16.0.0 (2020-07)
+
+
+<char> ::= ‘unsigned 7 bit integer’  ; 7-bit GSM character value
+
+; Extension table are supported but the Another Extension; and the
+; Page Break are not supported.
+
+ |  unsigned 16 bit integer’ ; 16-bit UCS-2 value
+ ; CR is supported but other control characters are not supported
+
+; (ignored when processed).
+
+<mask> := 0 | 1   ; 0 for false, 1 for true
+
+<hint> := 0 | 1   ; 0 for false, 1 for true
+
+
+
+Character Size WVG Header
+
+<character size WVG header> ::= ( 0  ( <aspect ratio> <line element mask> <relative use>
+
+<parameters X-0> <parameters Y-0> ) )
+
+; standard header
+
+| ( 1 ( <line element mask> <relative use> <MaxXYInBits0> ) )
+
+; compact header. In this case, x and y grid are same,
+
+; default peak value 1.0, default aspect ratio1:1.
+
+     ; Note: character size WVG always use compact coordinate mode
+
+<line element mask> ::= <mask>  ; true for at least one polyline element in the drawing
+
+<mask>  ; true for at least one circular polyline element in the drawing
+
+<mask>  ; true for at least one Bezier polyline element in the drawing
+
+
+
+<relative use> ::= 0 | 1   ; 0 for all points use absolute coordinates,
+
+     ; 1 for at least one point uses relative coordinate (offset mode)
+
+<parameters X-0> ::= <MaxXInBits0> <peak description>
+
+<parameters Y-0> ::= <MaxYInBits0> <peak description>
+
+<MaxXInBits0> ::= <bits indicator >
+
+<MaxXInBits0> ::= <bits indicator >
+
+<MaxXYInBits0> ::= <bits indicator >
+
+<bits indicator> ::= 00…11 ; 00 for 3 bits (max value 7), 01 for 4 bits (max value 15)
+
+;10 for 5 bits (max value 31), 11 for 6 bits (max value 63)
+
+<peak description> ::= 00…11  ; 00:  peak value 1.0, no peak position required
+
+; 01: peak value 1.5, peak position 0.5
+
+; 10: peak value 1.5, peak position 0.3333
+
+; 11: peak value 1.5, peak position 0.6667
+
+
+
+Character Size WVG Elements
+
+<line elements> ::= <number of line elements> <line element> { <line element> }
+
+<number of line elements> ::= ‘unsigned 7-bit integer’  ; maximum 127 elements
+
+<line element> ::= <line header>
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 189 ETSI TS 123 040 V16.0.0 (2020-07)
+
+( <polyline element> | <circular polyline element> |<Bezier polyline element> )
+
+<line header> ::= <line element type> [ <point mode> ]    ; appear when <relative use> = 1
+
+<line element type> ::=   ; empty, when <line element mask> = 100, 010 or 100
+
+0 | 1  ; when <line element mask> = 011, 110, 110 or 101
+
+; 0 for the firstelement with mask value 1 in the <line element mask>
+
+; 1 for the second element with mask value 1 in <line element mask>
+
+00..11  ; 00 for polyline, 01 for circular polyline, 10 for Bezier polyline
+
+   ; ( when <line element mask> = 111>)
+
+<point mode> ::= 0 | (1 <offset bit use>) ; 0 for use of absolute coordinate for <Next Point>
+
+       ; 1 for using relative coordinate (offset mode) for <Next Point>
+
+
+
+Standard WVG Header
+
+<standard WVG header> ::= <general info> <color configuration> <codec parameters> <animation settings>
+
+<general info> ::= <version> 0 | ( 1 <text code mode> <author string> <title string> <time stamp> )
+
+<version> ::= 0000…1111
+
+<author string> ::= 0 | (1 <string length> <char> { <char> } )
+
+<title string>  := 0 | (1 <string length> <char> { <char> } )
+
+<time stamp> ::= 0 | (1 <year> <month> <day> <hour> <minute> <second> )
+
+<year> ::='signed_13_bit_integer'
+
+<month> ::='unsigned_4_bit_integer' ; range 1-12
+
+<day> ::= 'unsigned_5_bit_integer' ; range 1-31
+
+<hour>  ::= 'unsigned_5_bit_integer' ; range 0-23
+
+<minute> ::= 'unsigned_6_bit_integer' ; range 0-59
+
+<second> ::= 'unsigned_6_bit_integer' ; range 0-59>
+
+
+
+Color
+
+<color configuration> ::= <color scheme> <default colors>
+
+
+
+<color scheme> ::= 00    ; black and white
+
+   | 010    ; 2-bit gray scale
+
+   | 011    ; 2-bit predefined color. 4 color value 00, 01, 10, 11 are
+
+        ; mapped to RGB color (255,255,255), (255,0,0),
+
+        ; (0,255,0) and  (0,0,255) respectively
+
+   | 100    ; 6-bit RGB color
+
+   | 101    ; websafe color
+
+   | 1100 <6-bit color palette> ; 6-bit RGB color using 2nd color palette
+
+   | 1101 <8-bit color palette> ; websafe color using 2nd  palette
+
+   | 1110    ; for 12 bits color mode
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 190 ETSI TS 123 040 V16.0.0 (2020-07)
+
+   | 1111    ; for 24 bits color mode
+
+<6-bit color palette> ::= 00000…11111   ; A value equal to “number of color” - 1.
+
+;
+
+ Maximum 32 color entries
+
+       {<6-bit RGB color>}  ; specify color value from 0 to “number of color”-1
+
+<8-bit color palette> ::= 0000000…1111111  ; A value equal to “number of color” - 1.
+
+; Maximum 128 color entries
+
+       { <8-bit websafe color> } ;specify color value from 0 to “number of color”-1
+
+; Note: the decoder will decide number of bits used by <indexed
+
+; RGB/websafe color> <indexed color> use 1 to 7 bits if <number of
+
+; color> is  2, 3…4, 5…8, 9…16, 17…32, 33…64, 65…128.
+
+<draw color> ::=  <b/w color>   ; when color scheme is 00
+
+| <grayscale>   ; when color scheme is 010
+
+| <2-bit predefined color>  ; when color scheme is 011
+
+| <6-bit RGB color>   ; when color scheme is 100
+
+| <8-bit websafe color>  ; when color scheme is 101
+
+| <indexed RGB color>  ; when color scheme is 1100
+
+| <indexed websafe color>  ; when color scheme is 1101
+
+| <12 bit RGB color>  ; when color scheme is 1110
+
+| <24 bit RGB color>  ; when color scheme is 1111
+
+<b/w color> ::= 0 | ; white
+
+  1 ; black
+
+
+
+<grayscale> ::= 00…11 ; 00 for 24-bit RGB color (0,0,0),          01 for 24-bit RGB color (85,85,85)
+
+    ; 10 for 24-bit RGB color (170,170,170), 11 for 24-bit RGB color (255,255,255)
+
+<2-bit predefined color> ::= 00…11 ;00 for 24-bit RGB color (255,255,255), 01 for 24-bit RGB color (255,0,0)
+
+      ;10 for 24-bit RGB color (0,255,0), 11 for 24-bit RGB color (0,0,255)
+
+<6-bit RGB color> ::= <2-bit R> <2-bit G> <2-bit B>
+
+<indexed RGB color> ::= (0 | 1) | 00…11 | 000…111 | 0000…1111 | 00000…11111
+
+   ; map to 6-bit RGB color value defined in <6-bit color palette>
+
+<8-bit websafe color> ::= 00000000…11111111
+
+   ; See G.7 for websafe color palette definition
+
+<indexed websafe color> ::= (0 | 1) | 00…11 | 000…111 | 0000…1111 |
+
+00000…11111 | 000000…111111 | 0000000…1111111
+
+   ; map to 8-bit websafe color value defined in <8-bit color palette>
+
+
+
+<2-bit R> ::= <2-bit color value>   ; Red color value
+
+<2-bit G> ::= <2-bit color value>  ; green color value
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 191 ETSI TS 123 040 V16.0.0 (2020-07)
+
+<2-bit B> ::=  <2-bit color value>  ; blue color value
+
+<2-bit color value> ::= 00…11  ; 00, 01, 10 and 11  for color value 0, 85, 170 and 255
+
+; defined in 0-255 color range respectively
+
+<12-bit RGB color> ::= <4-bit R> <4-bit G> <4-bit B> ;
+
+<4-bit R> ::= <4-bit color value>   ; Red color value
+
+<4-bit G> ::= <4-bit color value>  ; green color value
+
+<4-bit B> ::=  <4-bit color value>  ; blue color value
+
+<4-bit color value> ::= 0000…1111  ; multiply by 17 to convert to 8 bit color value
+
+<24-bit RGB color> ::= <8-bit R> <8-bit G> <8-bit B> ;
+
+<8-bit R> ::= <8-bit color value>   ; Red color value
+
+<8-bit G> ::= <8-bit color value>  ; green color value
+
+<8-bit B> ::=  <8-bit color value>  ; blue color value
+
+<8-bit color value> ::= 00000000…1111111 ; intensity value of color value
+
+
+
+<default colors> :=  ( 0 | (1 <default line color>))    ; use black  when first bit is 0
+
+( 0 | (1 <default fill color>))          ; use black  when first bit is 0
+
+( 0 | (1 <background color>))       ; use white  when first bit is 0
+
+;  If above color(s) are not
+
+; specified, use BLACK as <default line color> and <default fill color>, and use
+
+; WHITE as <background color>.
+
+<default line color> ::= <draw color>
+
+<default fill color> ::= <draw color>
+
+<background color> ::= <draw color>
+
+
+
+Codec Parameters
+
+<codec parameters> ::= <element mask> <attribute mask> <generic parameters>
+
+   <coordinate parameters>
+
+<coordinate parameters> ::=  ( 0 <flat coordinate parameters> )  ; flat coordinate mode
+
+|  (1 <compact coordinate parameters> ) ; compact coordinate mode
+
+<element mask> ::= <mask>  ; true for at least one local envelope element in the drawing
+
+<mask>  ; true for at least one polyline element in the drawing
+
+<mask>  ; true for at least one circular polyline element in the drawing
+
+<mask>  ; true for at least one Bezier polyline element in the drawing
+
+<mask>  ; true for at least one simple shape element in the drawing
+
+<mask>  ; true for at least one reuse element in the drawing
+
+<mask>  ; true for at least one group element in the drawing
+
+<mask>  ; true for at least one animation element in the drawing
+
+(0 | (1   ; extension bit. 1 for rare masks are followed by
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 192 ETSI TS 123 040 V16.0.0 (2020-07)
+
+ <mask>  ; true for at least one polygon element in the drawing
+
+<mask>  ; true for at least one special shape element in the drawing
+
+<mask>  ; true for at least one frame element in the drawing
+
+<mask>  ; true for at least one text element in the drawing
+
+<mask>  ; true for at least one extended element in the drawing
+
+) ;The decoder should decide how many bits to be used by <element type>
+
+) ; according to number of “1”s in the <element mask>. Number of bits
+
+; used by <element type> can be 0 (if only one “1” in <element mask>),
+
+; 1 (if 2 “1”s), 2 (if  3 or 4 “1”s), 3 (if 5-8 “1”s) or 4(if more than 8
+
+; “1”s). Value of <element type> that is to represent a specific element
+
+;  type is same as the order of  the specific mask  in the <element mask>
+
+; that represents this type of element. For example, if <element mask> is
+
+; 011000010, <element  type> will use 2 bits and value 00, 01, 10
+
+;  (11 is not used) represent polyline, circular polyline and animation
+
+;  elements respectively.
+
+; Note that <mask> for local envelope has no meanings when in flat
+
+; coordinate mode but still
+
+; exists
+
+<attribute masks> ::= <line type mask> <line width mask> <line color mask> <fill mask>
+
+<line type mask> ::= <mask>  ; true when at least one element uses line type attribute
+
+<line width mask> ::= <mask>  ; true when at least one element uses line width attribute
+
+<fill mask> ::= <mask>   ; true when at least one element uses fill attribute
+
+<line color mask> ::= <mask>  ; true when at least one element uses line color
+
+
+
+Generic Parameters
+
+<generic parameters> ::= (0 | (1 <angle resolution> <angle in bits> ) ; 0 for default (22.5 degree, 3 bits)
+
+   (0 | (1 <scale resolution> <scale in bits> ) ; 0 for default (1/4, 3 bits)
+
+   (0 | (1 <index in bits> ) ; 0 for default (both  3 bits)
+
+[<curve offset in bits> ]
+
+; <curve offset in bits> appear when <mask> for <circular polyline element>
+
+; or <polygon element> is true
+
+<angle resolution> ::= 00…11  ; 00  for angle unit is 1.40625  degree; 01 for angle unit is 5.625 degree
+
+; 10  for angle unit is 11.25 degree; 11 for angle unit is 22.5 degree
+
+<angle in bits> ::= 000…111  ; number of bits used by <angle value> is from 1 to 8 bits
+
+<angle value> ::= ‘signed angleInBits+1-bit integer’
+
+; angle unit is decided by <angle resolution>
+
+;0  degree is defined as positive direction of the X axis and
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 193 ETSI TS 123 040 V16.0.0 (2020-07)
+
+; positive angle value is clockwise.
+
+; -180 degree is represented by maximum negative digit
+
+<scaleresolution> ::= 00..11  ; 00 for 1/4 as scale unit.  01 for 1/16 as scale unit
+
+; 10  for 1/64 as scale unit; 11 for 1/256 as scale unit
+
+<scale in bits> ::= 0000…1111  ; number of bits used by <scale value> is from 1 to 16 bits
+
+<scale value> ::=  ‘signed scaleInBits+1-bits integer’
+
+; scale unit is decided by <scale resolution>
+
+; negative scale value means scaling at
+
+; opposite direction
+
+<index in bits> ::= 0000…1111  ; number of bits used by <index> are from 1 to 16 bits
+
+<index> ::= <index value>
+
+<index value> ::= ‘unsigned IndexInBits+1-bit integer’
+
+<curve offset in bits> ::= 0 | 1  ; 0 for using 4 bits (15 levels)
+
+; 1 for using 5 bits (31 levels)
+
+
+
+Compact Coordinate Parameters
+
+<compact coordinate parameters> ::= <aspect ratio> <TransXYInBits1>
+
+<parameters X-1> <parameters Y-1> <redefine resolution hint>
+
+<aspect ratio> ::=    00 |     ; aspect ratio = 1:1
+
+( (  01     ; aspect ratio = 4:3
+
+   | 10     ; aspect ratio = 16:9
+
+   | 1100     ; aspect ratio = 64:27
+
+   | 1101     ; aspect ration = 256:81
+
+   | 1110     ; aspect ration = 1024:243
+
+   | 1111     ; aspect ration = 4096:729
+
+   ) [ <display orientation> ]  ; <display orientation> appears in standard WVG
+
+)     ; character size WVG uses landscape only
+
+<display orientation > ::= 0 | 1   ; 0 for landscape, 1 for portrait
+
+<parameters X-1> ::= <MaxXInBits1> <coordinate parameters>
+
+<parameters Y-1> ::= <MaxYInBits1> <coordinate parameters>
+
+<coordinate parameters> ::= 00 | ( <peak value> <peak position> <peak width> )
+
+      ; peak value default to 1.0 when 00 is defined
+
+<MaxXInBits1> ::= 00…11   ; Number of bits used by <X>.
+
+; This determines the number of grid lines in the X direction.
+
+<MaxYInBits1> ::= 00…11   ; Number of bits used by <Y>.
+
+; This determines the number of grid lines in the Y direction.
+
+; 00 for 15, 01 for 31,10 for 63, 11 for 127
+
+<peak value> ::= 01…11    ;  01 for 1.5, 10  for 2.0, 11 for 2.5
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 194 ETSI TS 123 040 V16.0.0 (2020-07)
+
+<peak position> ::= 0000…1100  ; 0-12. Peak position = value/12 from envelope left.
+
+  | 1101   ; reserved
+
+  | 1110   ; reserved
+
+  | 1111   ; reserved
+
+<peak width> ::= 00…11   ; 00 for 0.3, 01 for 0.4, 10 for 0.5, 11 for 0.6
+
+;<peak width> value are to the scale of total global envelope width.
+
+; 10 (0.5) and 11 (0.6) are not allowed when <peak value> is 11 (2.5)
+
+; 11 (0.6) is not allowed when <peak value> is 10 (2.0)
+
+<redefine resolution hint> ::= <hint> ; true when at least one element uses ‘redefine resolution’attribute
+
+<TransXYInBits1> ::= 00..11 ; number of bits to encode translation and center of transform
+
+    ; 00 for 5 bits, 01 for 6 bits, 10 for 7 bits, 11 for 8 bits
+
+  ; In global scope and at X axis, it uses unit of (global envelope width/ (number of X grid lines –1 ))
+
+  ; In global scope and at Y axis, it uses unit of (global envelope height/ (number of Y grid lines –1 ))
+  ; In local scope, its unit is same as local coordinate unit.
+
+
+
+
+
+Flat Coordinate Parameters
+
+<flat coordinate parameters> ::= <drawing width> ( 0 | 1 (<drawing height>)) ; 0 means height = width
+
+<MaxXInBits2><MaxYInBits2> < XYAllPositive>
+
+<TransXYInBits2>  <NumPointsInBits>
+
+<OffsetXInBitsLevel1> <OffsetYInBitsLevel1>
+
+<OffsetXInBitsLevel2> <OffsetYInBitsLevel2>
+
+<drawing width> ::= ‘unsigned 16-bit integer’
+
+<drawing height> ::= ‘unsigned 16-bit integer’
+
+<MaxXInBits2> ::= ’unsigned_4_bit_integer’
+
+; number of bits to encode X coordination
+
+<MaxYInBits2> ::= ’unsigned_4_bit_integer’
+
+; number of bits to encode Y coordination
+
+<XYAllPositive> ::= ”unsigned_1_bit_integer’
+
+; 0 means not all x/y are positive
+
+; 1 means all x/y are positive
+
+<TransXYInBits2> ::= ‘unsigned_4_bit_integer’ ; number of bits to encode translation and center of transform
+
+<OffsetXInBitsLevel1> ::= ‘unsigned_4_bit_integer’
+
+<OffsetYInBitsLevel1> ::= ‘unsigned_4_bit_integer’
+
+<OffsetXInBitsLevel2> ::= ‘unsigned_4_bit_integer’
+
+<OffsetYInBitsLevel2> ::= ‘unsigned_4_bit_integer’
+
+<NumPointsInBits> ::= ‘unsigned_4_bit_integer’
+
+
+
+Animation Settings
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 195 ETSI TS 123 040 V16.0.0 (2020-07)
+
+<animation settings> ::= [ <animation mode> ]  ;appear when <animation element> exist
+
+<animation mode> ::= 0 | 1 ; 0 for simple animation;  1 for standard animation
+
+
+
+Element
+
+<elements> := <number of elements> <element> { <element> }
+
+<number of elements> ::= (0 ‘unsigned 7-bit integer’)
+
+   |   (1 ‘unsigned 15-bit integer’)
+
+<element> := <element type> ( <basic element> |
+
+    <frame element> | <group element> | <re-use element> |
+
+     <animation element> | <extended element> | <local envelope element> )
+
+<element type> ::=  | 0…1 | 00..11 | 000…111 | 0000…1111  ; empty is allowed
+
+; decided by <element mask>. Please refer to <element mask>
+
+<animation element> := <simple animation element> | <standard animation element>
+
+; if <animation mode> is 0, all animation elements in the drawing are <simple animation element>
+
+ ; if <animation mode> is 1, all animation elements in the drawing are <standard animation element>
+
+<basic element>::= <basic element header> ( <polyline element> | <circular polyline element>
+
+ | <Bezier polyline element> | <polygon element> | <simple shape element>
+
+| <special shape element> | <text element> )
+
+
+
+Basic Element Header
+
+
+
+<basic element header> ::= ( <offset bit use>  ; when in flat coordinate mode
+
+   | <resolution and offset bit> )  ; when in compact coordinate mode
+
+ [ 0 | (1<attributes set> ) ]   ; appears when <attribute masks> does not equal
+
+; to 0000
+
+; 0 for using default attributes defined in <drawing header>
+
+  ; 1 for using the following specific attributes
+
+
+
+<Offset Bit Use> ::= <Offset X Use><Offset Y Use>
+
+<Offset X Use> ::= 0 | 1
+
+  ; when in compact coordinate mode, 0 means offset X will use 3 bits.,
+
+;      1 means use 4 bits
+
+  ; when in flat coordinate mode, 0 means offset X will use <OffsetXInBitsLevel1>,
+
+;      1 means use <OffsetXInBitsLevel2>
+
+<Offset Y Use> ::= 0 | 1
+
+  ; when in compact coordinate mode, 0 means offset X will use 3 bits,
+
+;      1 means use 4 bits
+
+  ; when in flat coordinate mode, 0 means offset X will use <OffsetYInBitsLevel1>,
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 196 ETSI TS 123 040 V16.0.0 (2020-07)
+
+;      1 means use <OffsetYInBitsLevel2>
+
+<resolution and offset bit>::= (0 |  (1<offset bit use> )
+
+; only when <redefine resolution hint> is false or in local scope
+
+; 0 for absolute coordinate, 1 for relative coordinates
+
+  | (0  (0 |  (1<offset bit use> ))
+
+; when <redefine resolution hint> is true and in global scope
+
+; 0 for absolute coordinate, 1 for relative coordinates
+
+ | ( 1 <coordinate resolution> <offset bit use> )
+
+; when <redefine resolution hint>  is true and in global scope
+
+ ; redefine resolution, always use relative coordinates
+
+
+
+<coordinate resolution> ::= 000…111  ; decide the grid line interval by a scale of width
+
+; or height of the global envelope whichever is short.
+
+; 0-7 for 1/27, 1/32, 1/38, 1/48, 1/64,
+
+;   1/85, 1/128 and 1/160 respectively
+
+
+
+Element Attributes
+
+<attribute set> ::= [ <line type> ]  ; appear when <line type  mask> is true
+
+    [ <line width> ] ; appear when <line width mask> is true
+
+   [ 0 | (1 <line color>) ] ; appear when <line color mask> is true and
+
+ ;  <line width> is not zero
+
+ ; 0 for <default line color>, 1 for specified color
+
+   [ 0 | (1  ; 0 for no fill; 1 for with fill
+
+  (0 | (1 <fill color>)) ; 0 for <default fill color>, 1 for specified color
+
+ )   ; appear when <fill mask> is true
+
+   ]  ; Note: line type and line width are not used by <text element> but
+
+  ;  still exist here. If not filled, then background of text output will
+
+  ; be transparent. If filled, then fill color will be used as text background.
+
+<line width> ::= 00…11   ; 00 for no line, 01 for Fine, 10 for medium, 11 for thick
+
+; 00 is only valid with fill
+
+<line type> ::= 00…11   ; 0 for solid, 1 for dash line, 2 for dotted line
+
+ <fill color > ::= <draw color>
+
+<line color> ::= <draw color>
+
+<OverrideAttributeSet> ::= 0 | (1 <line type>)
+
+       0 | (1 <line width>)
+
+       0 | (1 <line color>)
+
+       0 | (1 <fill> )
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 197 ETSI TS 123 040 V16.0.0 (2020-07)
+
+       0 | (1 <fill color>)
+
+       ; 0 for no overriding, 1 for overriding with specified attribute
+
+<fill> ::= 0 | 1     ; 0 means no fill, 1 means fill
+
+
+
+
+
+Transform
+
+<Transform> ::= <TranslateX><TranslateY>
+
+0 | (1 <Angle> <ScaleX><ScaleY> < CX>< CY>) ; optional other transforms
+
+<Angle> ::= 0 | (1 <Angle Value> )  ; 0 means angle will use default value which is 0
+
+<TranslateX> ::= 0 | (1 <TranslateX Value> ) ; 0 means translate x  will use default value which is 0
+
+<TranslateX Value> ::= ’signed_TransXYInBits2_bit integer’ ; when in flat coordinate mode
+
+  | ‘signed TransXYInBits1+5 bit integer’ ; when in compact coordinate mode
+
+<TranslateY> ::= 0 | (1 <TranslateY Value> ) ; 0 means translate y will use default value which is 0
+
+<TranslateY Value> ::= ’signed_TransXYInBits2_bit integer’ ; when in flat coordinate mode
+
+  | ‘signed TransXYInBits1+5-bit integer’  ; when in compact coordinate mode
+
+<ScaleX> ::= 0 | (1<Scale value> )  ; 0 means scale will use default value which is 1.0
+
+<ScaleY>::= 0 | (1 <Scale value> )  ; 0 means scale will use default value which is same as
+
+      ; absolute value of <ScaleX>
+
+<CX> ::= 0 | (1 <CX value> )  ; translation of rotation and scale center; 0 means it will use default
+
+; value which is at the left border of the drawing (x=0 in  the flat
+
+; coordinate system or the global envelope)
+
+<CX value> ::= ’signed_TransXYInBits2_bit integer’  ; when in flat coordinate mode
+
+  | <X>    ; when in compact coordinate mode
+
+<CY> ::= 0 | (1 <CY value> )  ; 0 means it will use default value which is
+
+      ; (y=0 in  the flat coordinate system or the global envelope)
+
+<CY value> ::= ’signed_TransXYInBits2_bit integer’  ; when in flat coordinate mode
+
+  | <Y>    ; when in compact coordinate mode
+
+
+
+Polyline Element
+
+<polyline element> ::= [ <numberOfPoints> ] <First Point> { <Next Point> } [ <point terminator> ]
+
+; specifies a start point, zero or many intermediate points and an end point.
+
+; <numberOfPoints> appears only when in flat coordinate mode
+
+; <point terminator> appears only when in compact coordinate mode
+
+<point terminator> ::= 111…111111  ; Absolute mode in character size WVG. Same number of
+
+; bits of <MaxXInBits0> or <MaxXYInBits0>
+
+ | 1111…1111111  ; Absolute mode in standard WVG. Same number of bits of
+
+; <MaxXInBits1>or <MaxLocalXYInBits>
+
+  | ( 100  | 1000 )  ; Offset mode (relative).
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 198 ETSI TS 123 040 V16.0.0 (2020-07)
+
+       ; use 100 when <Offset X Use> = 0
+
+       ; use 1000 when <Offset X Use> = 1
+
+
+
+
+
+Circular Polyline Element
+
+<circular polyline element> ::= <curve hint> [ <numberOfPoints> ] <FirstPoint> <curve offset> <point>
+
+{ <curve offset> <NextPoint> } [ <offset terminator> ]
+
+; <numberOfPoints> appears only when use
+
+; flat coordinate  mode
+
+; <offset terminator> appears only when use
+
+; compact coordinate mode
+
+<curve hint> ::= <hint>
+
+<curve offset> ::= ( 0 | (1 <curve offset value>) )  ; when <curve hint> is true
+
+  | <curve offset value>   ; when <curve hint> is false
+
+<offset value> ::= ‘signed 4-bit integer’  ; when <curve offset in bits> = 0
+
+        ; or in character size WVG
+
+  | ‘signed 5-bit integer’  ; when <curve offset in bits> = 1
+
+; Curve offset ratio r = e/L
+
+; Where e is actual curve offset(can be positive or negative),
+
+; L is distance between adjacent nodes
+
+; We use a signed integer value v to represent. v = round(r*k);
+
+; Where k = 2^n - 2  (n is number of bits used for <offset value>)
+
+<offset terminator> ::= ( 1 <curve offset bits>)  ; when <curve hint> is true
+
+  | < curve offset bits >   ; when <curve hint> is false
+
+<curve offset bits> ::=  1000    ; when <curve offset in bits> = 0
+
+    | 10000   ; when <curve offset in bits> = 1
+
+
+
+Bezier Polyline Element
+
+<Bezier polyline element> ::= [ <NumberOfPoints> ]
+
+<First Point> {<OnCurve> <Next Point>} [ 1 <point terminator>]
+
+; Same data format for PolyBezCurve, and PolygonBezCurve
+
+; <numberOfPoints> appears only when in flat coordinate moed
+
+; “1 <point terminator>” appears only when in compact coordinate mode
+
+<NumberOfPoints> ::= ’unsigned_NumberOfPointsInBits_bit integer’
+
+<OnCurve> ::= 0 | 1
+
+   ; 0 – off curve
+
+   ; 1 – on curve
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 199 ETSI TS 123 040 V16.0.0 (2020-07)
+
+NOTE: Only cubic and quadratic Bezier curves are supported. It means only one or two successive off-curve
+points are allowed. The first point of a curve must be on-curve. The last point must also be on-curve if it
+is Bezier polyline but is not necessary for Bezier polygon.
+
+
+
+Polygon Element
+
+Polygon element is actually a closed polyline (including circular and Bezier polyline)
+
+<polygon element> ::= ( 00 <polyline element> ) | (01 <circular polyline element> )
+
+ | (10 <Bezier polyline element> )
+
+
+
+Simple Shape Element
+
+<simple shape element> ::= (0 <rectangle element> ) | (1 <ellipse element> )
+
+<rectangle element>::=<Point><Width><Height><rounded flag> <Angle>
+
+<ellipse element>::=<Point><Width><Height> <Angle>
+
+<Width> ::= <X> | <Offset X> ; <Offset X> is used when <Offset Bit Use> exists in the <basic element header>
+
+  ; if the element is in global scope in compact coordinate mode, use unit of
+
+  ;  (global envelope width/ (number of X grid lines –1 ))
+
+<Height>::= 0 | (1 <HeightValue> )  ; 0 means the height is same as width, height will not be encoded
+
+<HeightValue> ::= <Y> | <Offset Y>
+
+   ; <Offset Y> is used when <Offset Bit Use> exists in the <basic element header>
+
+   ; if the element is in global scope in compact coordinate mode, use unit of
+
+;  (global envelope height/ (number of Y grid lines –1 ))
+
+<rounded flag> ::= 0 | 1  ; 0 for straight corner, 1 for rounded corner
+
+
+
+Special Shape Element
+
+<special shape element> ::= <point> <angle>
+
+   00 ( <vertex> < diameter >   ; regular polygon
+
+  | 01 ( <vertex> <vertex angle> < diameter > ; star
+
+  | 10 ( <rectangle size> <rows> <columns> ) ; grid
+
+  | 11       ; not used
+
+<diameter > ::= <X> | <Offset X> ; diameter of circle or vertex
+
+   ; <Offset X> is used when <Offset Bit Use> exists in the <basic element header>
+
+   ; if the element is in global scope in compact coordinate mode, use unit of
+
+   ;  (global envelope width/ (number of X grid lines –1 ))
+
+<rectangle size>::= <width> <height>
+
+<vertex> ::= 000…111   ; number of vertex = <vertex> + 3
+
+<vertex angle> ::= 00…11  ; 00 for 0 degree, 01 for 36 degree
+
+; 10 for 60 degree, 11 for 90 degree
+
+<rows> ::= 0000…1111   ; rows = <rows> + 1
+
+<columns> ::= 0000…1111  ; columns = <columns> + 1
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 200 ETSI TS 123 040 V16.0.0 (2020-07)
+
+
+
+Text Element
+
+<text element> ::= <point> <font size> <angle> <text code mode> <string length> { <char> }
+
+ ; <point> is top-left  corner of the text.
+
+
+
+<font size> ::= <Y> | <Offset Y>  ; <Offset Y> is used when <Offset Bit Use> exists in the <basic element
+
+; header>
+
+   ; if the element is in global scope in compact coordinate mode, use unit of
+
+   ;  (global envelope height/ (number of Y grid lines –1 ))
+
+
+
+Local Envelope Element
+
+<local envelope element> ::= ( 0 <local envelope description> <point> )
+
+  ; local start
+
+; <point> is top- left corner of the local envelope in global coordinates.
+
+; Elements in the local envelope scope use local coordinates and measurements
+
+|     1 ; local end
+
+
+
+<local envelope description> ::= <coordinate resolution> <MaxLocalXYInBits>
+
+
+
+<MaxLocalXYInBits> ::= 00…11  ; 00 for 3 bits(max value 7), 01 for 4 bits (max value 15),
+
+ ; 10 for 5 bits (max value 31), 11 for 6 bits (max value 63)
+
+
+
+Group Element
+
+<group element> ::=       (0 (0 | (1 <transform>) ) <display> ) ; start of group. Transform is optional
+
+| 1       ; end of group
+
+
+
+<display> ::=  0 | 1     ; 0 – no display when render; 1 – display when render
+
+
+
+Re-use Element
+
+<re-use element> ::=  <element index>  ; point to the element to be re-used
+
+        ; only <basic element>,<group element> and
+
+; <re-use element> can be reused
+
+<transform>   ; re-use with transformation
+
+ 0 | (1 <array parameter>) ; array. It should be performed as the last step
+
+   0 | (1 <OverrideAttributeSet> )
+
+<element index> ::= <index value> ; the element sequence number in whole drawing. Start from 0.
+
+<array parameter> ::= <columns> [ <array width> ] <rows> [ < array height> ]
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 201 ETSI TS 123 040 V16.0.0 (2020-07)
+
+   ; <array height> indicates whole height of the array, appears when <rows> is non-zero
+
+   ; element interval at X direction equals to <width>/<columns>
+
+   ; <array width> indicates whole width of the array, appears when <colunms> is non-zero
+
+   ; element interval at Y direction equals to <height>/<rows>
+
+   ; The top left element in the array is at the position specified in <transform>
+
+<array width> ::= <X>   ; if the element is in globale scope in compact coordinate mode, use unit of
+
+      ;  (global envelope width/ (number of X grid lines –1 ))
+
+<array height>::= 0 | (1 <Y> )   ; 0 means the height is same as width, height will not be encoded
+
+   ; if the element is in globale scope in compact coordinate mode, use unit of
+
+   ;  (global envelope height/ (number of Y grid lines –1 ))
+
+
+
+Frame Element
+
+<Frame> ::= <KeepLastFrameContentFlag><HasFilledColorFlag>[< fill color >]
+
+     ; <fill color> is new background color for the frame
+
+<KeepLastFrameContentFlag>::='unsigned 1-bit integer'
+
+;  keep the image of the last frame on the screen, or clear it
+
+; value 0 - Do not keep last frame content.
+
+; value 1 - Keep last frame content.
+
+<HasFilledColorFlag> ::='unsigned 1-bit integer'
+
+; value 0 - no filled color
+
+; value 1 - has filled color
+
+
+
+Simple Animation Element
+
+<simple animation element> ::= <cycle type>
+
+( 0 | ( 1 <visibility parameter> )
+
+( 0 | ( 1 <transform> )  ; begin transform
+
+( 0 | ( 1 <transform> )  ; end transform
+
+( 0 | 1 )    ; 0 for no bouncing.  1 for bouncing
+
+<rotation direction>
+
+<round rotation flag>
+
+
+
+<round rotation flag> ::= 0 | 1  ; 0  for no round rotation.
+
+; 1 for round rotation and will override angles defined in <transform>
+
+<cycle type> ::= 0 | 1   ; 0 indicates short animation cycle; 1 indicates long animation cycle
+
+<visibility parameter> ::= <visibility timing>
+
+<visibility timing> ::= 0000…1111 | 00000000…11111111
+
+; One blinking cycle is  divided into four equal time steps for short
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 202 ETSI TS 123 040 V16.0.0 (2020-07)
+
+;  animation cycle or eight steps for long animation cycle. <visibility timing> is a map of time steps in
+
+; which 0 represents invisible and 1 represents visible. Note that in above map, consequence time steps
+
+; is from left to right, or from first order to later order in bit stream.
+
+<rotation direction> ::= 0 | 1  ; 1 for clockwise rotating. 0 for counter-clockwise rotating
+
+NOTE: For all individual values in the transform, linear interpolation is used.
+
+
+
+
+
+Standard Animation Element
+
+<standard animation element>::= <element index> <BeginTransform><EndTransform><Rotation Direction>
+
+<Round> 0 | (1 <BeginColor><EndColor> ) <BeginTime><Duration><ExistAfter>
+
+<BeginTransform> ::= 0 | (1<Transform> )  ; begin position
+
+;0 – means use (start from) default transform:
+; Angle=0, TranslateX=0, TranslateY=0, ScaleX=256, ScaleY=256, Cx=0, Cy=0
+
+    ;1 – means Transform follows
+
+<EndTransform> ::= 0 | (1 <Transform> )  ; end position
+
+    ;0 – means use (end at) default transform
+    ; Angle=0, TranslateX=0, TranslateY=0, ScaleX=256, ScaleY=256, Cx=0, Cy=0
+
+    ;1 – means Transform follows
+
+<Rotation Direction> ::= 0 | 1 ;0 – counter clockwise
+
+    ;1 – clockwise
+
+<Round> ::= 0 | 1  ;0 – no rotation
+
+    ;1 – rotate 360 degrees
+
+<BeginColor> ::= ( 0 | (1 <line color> ) ) ( 0 | (1 <fill color> ) )
+
+    ;0 – use default colors
+
+    ;1 – use specified colors
+
+<EndColor> ::= ( 0 | (1 <line color> ) ) ( 0 | (1 <fill color> ) )
+
+    ;0 – use default colors
+
+    ;1 – use specified colors
+
+<BeginTime> ::= ’unsigned 12-bit integer’  ;<BeginTime> is in units of 10ms
+
+<Duration> ::= ’unsigned 12-bit integer’  ; <Duration> is in units of 10ms
+
+<ExistAfter> :: = 0 | ( 1 <AnimationRepeat>) ; 0 – animation element will disappear after the animation is finished
+
+    ; 1 – animation element will persist after the animation is finished
+
+<AnimationRepeat>::= 0 | ( 1 <Bouncing> ) ; 0 – no repeat, animated element will stay
+       ; at <EndTransform>
+
+       ; 1 – animation will repeat, duration will be <Duration>
+<Bouncing>:= 0 | 1     ; 0 – no bouncing, animation will repeat as from begin
+       ; position to end position
+
+       ; 1 – repeat with bouncing. Animation will be
+       ; repeated as end position ->
+       ; begin position, then begin position->end position,
+       ; then end position->begin position …
+
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 203 ETSI TS 123 040 V16.0.0 (2020-07)
+
+NOTE: For all individual values in the transform, linear interpolation is used. Similarity, color interpolation uses
+linear RGB color space. Out of range color values are allowed.
+
+
+
+
+
+Extended Element
+
+<Extended> ::= <SizeOfSize><Size><ExtendedElementType>{<payload>}
+
+<SizeOfSize>::=’unsigned_5_bit integer’
+
+   ; the bit size of the Size field
+
+<Size>::=’unsigned-<SizeOfSize>-bit integer’
+
+   ; size of extended element data after ExtendedElementType, in bytes
+
+<ExtendedElementType>::=’unsigned_8_bit integer’
+
+   ; element type of extended element
+
+<payload>::=’unsigned_8_bit integer’
+
+; encoded extended element data. The size should be the same as the Size field of Extended, above.
+
+
+
+Position and Measurement
+
+<First Point>::=<point>   ; first point of a polyline or polygon (including circular and
+
+; Bezier polygons)
+
+<Next Point> ::= <point> |  ; when use absolute mode
+
+<Offset>   ; when use offset mode
+
+;  in flat coordinate system, only offset mode  is used.
+
+
+
+<point> ::= <X> <Y>
+
+<X> ::= ’signed MaxXInBits2-bit integer’  ; when in flat coordinate mode and <XYAllPositive> = 0
+
+ | ‘unsigned MaxXInBits2-bit integer’  ; when in flat coordinate mode and <XYAllPositive> = 1
+
+| ‘unsigned MaxXInBits1+4-bit integer’  ; when in compact coordinate mode and in global scope
+
+| ‘unsigned MaxLocalXYInBits+3-bit integer’ ; when in compact coordinate mode and in local scope
+
+| ‘unsigned MaxXInBits0+3-bit integer’  ; when in character size WVG (use standard header)
+
+| ‘unsigned MaxXYBits0+3-bit integer’  ; when in character size WVG (use compact header)
+
+<Y> ::= ’signed MaxYInBits2-bit integer’  ; when in flat coordinate mode and <XYAllPositive> = 0
+
+ | ’unsigned MaxYInBits2-bit integer’  ; when in flat coordinate mode and <XYAllPositive> = 1
+
+| ‘unsigned MaxYInBits1+4-bit integer’  ; when in compact coordinate mode and in global scope
+
+| ‘unsigned MaxLocalXYInBits+3-bit integer’ ; when in compact coordinate mode and in local scope
+
+| ‘unsigned MaxYInBits0+3-bit integer’  ; when in character size WVG (use standard header)
+
+| ‘unsigned MaxXYBits0+3-bit integer’  ; when in character size WVG (use compact header)
+
+; Note: in compact coordinate mode,<X> and <Y> do not use the maximum number of the unsigned integer
+
+<Offset> ::= <Offset X> <Offset Y>
+
+<Offset X> ::= <signed offset X>   ; when used by <Next Point>
+
+| <unsigned offset X>   ; when used in other cases
+
+<Offset Y> ::= <signed offset Y>   ; when used by <Next Point>
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 204 ETSI TS 123 040 V16.0.0 (2020-07)
+
+  | <unsigned offset Y>     ; when used in other cases
+
+
+
+<signed offset X> = ’signed OffsetXInBitsLevel1-bit integer’
+
+       ;when in flat coordinate mode and <offset bit use> = 0
+
+| ’signed OffsetXInBitsLevel2-bit integer’
+
+       ;when in flat coordinate mode and <offset bit use> = 1
+
+   | ‘signed 3-bit integer’ ;when in compact coordinate mode and <offset bit use> = 0
+
+| ‘signed 4-bit integer’ ;when in compact coordinate mode and <offset bit use> = 0
+
+<signed offset Y> = ’signed OffsetYInBitsLevel1-bit integer’
+
+;when in flat coordinate mode and <offset bit use> = 0
+
+| ’signed OffsetYInBitsLevel2-bit integer’
+
+;when in flat coordinate mode and <offset bit use> = 1
+
+   | ‘signed 3-bit integer’ ;when in compact coordinate mode and <offset bit use> = 0
+
+| ‘signed 4-bit integer’ ;when in compact coordinate mode and <offset bit use> = 0
+
+<unsigned offset X> ::= ’unsigned OffsetXInBitsLevel1-bit integer’
+
+ ;when in flat coordinate mode and <offset bit use> = 0
+
+| ’unsigned OffsetXInBitsLevel2-bit integer’
+
+ ;when in flat coordinate mode and <offset bit use> = 1
+
+  | ‘unsigned 3-bit integer’  ;when in compact coordinate mode and <offset bit use> = 0
+
+| ‘unsigned 4-bit integer’  ;when in compact coordinate mode and <offset bit use> = 1
+
+
+
+
+
+<unsigned offset Y> ::= ’unsigned OffsetYInBitsLevel1-bit integer’
+
+;when in flat coordinate mode and <offset bit use> = 0
+
+  | ’unsigned OffsetYInBitsLevel2-bit integer’
+
+;when in flat coordinate mode and <offset bit use> = 1
+
+  | ‘unsigned 3-bit integer’  ;when in compact coordinate mode and <offset bit use> = 0
+
+  | ‘unsigned 4-bit integer’  ;when in compact coordinate mode and <offset bit use> = 1
+
+G.7 Web Safe Color Palette
+Websafe color palette can be defined as in following C syntax using 24-bit RGB color (in form of {red, blue, green} ).
+The first index of the array indicates value of <8-bit websafe color>
+
+
+
+int websafePalette[256][3] =
+{
+  { 255, 255, 255 }, { 255, 204, 255 }, { 255, 153, 255 }, { 255, 102, 255 },
+  { 255,  51, 255 }, { 255,   0, 255 }, { 255, 255, 204 }, { 255, 204, 204 },
+  { 255, 153, 204 }, { 255, 102, 204 }, { 255,  51, 204 }, { 255,   0, 204 },
+  { 255, 255, 153 }, { 255, 204, 153 }, { 255, 153, 153 }, { 255, 102, 153 },
+  { 255,  51, 153 }, { 255,   0, 153 }, { 204, 255, 255 }, { 204, 204, 255 },
+  { 204, 153, 255 }, { 204, 102, 255 }, { 204,  51, 255 }, { 204,   0, 255 },
+  { 204, 255, 204 }, { 204, 204, 204 }, { 204, 153, 204 }, { 204, 102, 204 },
+  { 204,  51, 204 }, { 204,   0, 204 }, { 204, 255, 153 }, { 204, 204, 153 },
+
+ETSI
+
+
+
+3GPP TS 23.040 version 16.0.0 Release 16 205 ETSI TS 123 040 V16.0.0 (2020-07)
+
+  { 204, 153, 153 }, { 204, 102, 153 }, { 204,  51, 153 }, { 204,   0, 153 },
+  { 153, 255, 255 }, { 153, 204, 255 }, { 153, 153, 255 }, { 153, 102, 255 },
+  { 153,  51, 255 }, { 153,   0, 255 }, { 153, 255, 204 }, { 153, 204, 204 },
+  { 153, 153, 204 }, { 153, 102, 204 }, { 153,  51, 204 }, { 153,   0, 204 },
+  { 153, 255, 153 }, { 153, 204, 153 }, { 153, 153, 153 }, { 153, 102, 153 },
+  { 153,  51, 153 }, { 153,   0, 153 }, { 102, 255, 255 }, { 102, 204, 255 },
+  { 102, 153, 255 }, { 102, 102, 255 }, { 102,  51, 255 }, { 102,   0, 255 },
+  { 102, 255, 204 }, { 102, 204, 204 }, { 102, 153, 204 }, { 102, 102, 204 },
+  { 102,  51, 204 }, { 102,   0, 204 }, { 102, 255, 153 }, { 102, 204, 153 },
+  { 102, 153, 153 }, { 102, 102, 153 }, { 102,  51, 153 }, { 102,   0, 153 },
+  {  51, 255, 255 }, {  51, 204, 255 }, {  51, 153, 255 }, {  51, 102, 255 },
+  {  51,  51, 255 }, {  51,   0, 255 }, {  51, 255, 204 }, {  51, 204, 204 },
+  {  51, 153, 204 }, {  51, 102, 204 }, {  51,  51, 204 }, {  51,   0, 204 },
+  {  51, 255, 153 }, {  51, 204, 153 }, {  51, 153, 153 }, {  51, 102, 153 },
+  {  51,  51, 153 }, {  51,   0, 153 }, {   0, 255, 255 }, {   0, 204, 255 },
+  {   0, 153, 255 }, {   0, 102, 255 }, {   0,  51, 255 }, {   0,   0, 255 },
+  {   0, 255, 204 }, {   0, 204, 204 }, {   0, 153, 204 }, {   0, 102, 204 },
+  {   0,  51, 204 }, {   0,   0, 204 }, {   0, 255, 153 }, {   0, 204, 153 },
+  {   0, 153, 153 }, {   0, 102, 153 }, {   0,  51, 153 }, {   0,   0, 153 },
+  { 255, 255, 102 }, { 255, 204, 102 }, { 255, 153, 102 }, { 255, 102, 102 },
+  { 255,  51, 102 }, { 255,   0, 102 }, { 255, 255,  51 }, { 255, 204,  51 },
+  { 255, 153,  51 }, { 255, 102,  51 }, { 255,  51,  51 }, { 255,   0,  51 },
+  { 255, 255,   0 }, { 255, 204,   0 }, { 255, 153,   0 }, { 255, 102,   0 },
+  { 255,  51,   0 }, { 255,   0,   0 }, { 204, 255, 102 }, { 204, 204, 102 },
+  { 204, 153, 102 }, { 204, 102, 102 }, { 204,  51, 102 }, { 204,   0, 102 },
+  { 204, 255,  51 }, { 204, 204,  51 }, { 204, 153,  51 }, { 204, 102,  51 },
+  { 204,  51,  51 }, { 204,   0,  51 }, { 204, 255,   0 }, { 204, 204,   0 },
+  { 204, 153,   0 }, { 204, 102,   0 }, { 204,  51,   0 }, { 204,   0,   0 },
+  { 153, 255, 102 }, { 153, 204, 102 }, { 153, 153, 102 }, { 153, 102, 102 },
+  { 153,  51, 102 }, { 153,   0, 102 }, { 153, 255,  51 }, { 153, 204,  51 },
+  { 153, 153,  51 }, { 153, 102,  51 }, { 153,  51,  51 }, { 153,   0,  51 },
+  { 153, 255,   0 }, { 153, 204,   0 }, { 153, 153,   0 }, { 153, 102,   0 },
+  { 153,  51,   0 }, { 153,   0,   0 }, { 102, 255, 102 }, { 102, 204, 102 },
+  { 102, 153, 102 }, { 102, 102, 102 }, { 102,  51, 102 }, { 102,   0, 102 },
+  { 102, 255,  51 }, { 102, 204,  51 }, { 102, 153,  51 }, { 102, 102,  51 },
+  { 102,  51,  51 }, { 102,   0,  51 }, { 102, 255,   0 }, { 102, 204,   0 },
+  { 102, 153,   0 }, { 102, 102,   0 }, { 102,  51,   0 }, { 102,   0,   0 },
+  {  51, 255, 102 }, {  51, 204, 102 }, {  51, 153, 102 }, {  51, 102, 102 },
+  {  51,  51, 102 }, {  51,   0, 102 }, {  51, 255,  51 }, {  51, 204,  51 },
+  {  51, 153,  51 }, {  51, 102,  51 }, {  51,  51,  51 }, {  51,   0,  51 },
+  {  51, 255,   0 }, {  51, 204,   0 }, {  51, 153,   0 }, {  51, 102,   0 },
+  {  51,  51,   0 }, {  51,   0,   0 }, {   0, 255, 102 }, {   0, 204, 102 },
+  {   0, 153, 102 }, {   0, 102, 102 }, {   0,  51, 102 }, {   0,   0, 102 },
+  {   0, 255,  51 }, {   0, 204,  51 }, {   0, 153,  51 }, {   0, 102,  51 },
+  {   0,  51,  51 }, {   0,   0,  51 }, {   0, 255,   0 }, {   0, 204,   0 },
+  {   0, 153,   0 }, {   0, 102,   0 }, {   0,  51,   0 }, {  17,  17,  17 },
+  {  34,  34,  34 }, {  68,  68,  68 }, {  85,  85,  85 }, { 119, 119, 119 },
+  { 136, 136, 136 }, { 170, 170, 170 }, { 187, 187, 187 }, { 221, 221, 221 },
+  { 238, 238, 238 }, { 192, 192, 192 }, { 128,   0,   0 }, { 128,   0, 128 },
+  {   0, 128,   0 }, {   0, 128, 128 }, {   0,   0,   0 }, {   0,   0,   0 },
+  {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 },
+  {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 },
+  {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 },
+  {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 },
+  {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 },
+  {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 }, {   0,   0,   0 }
+};
+
+
+
+ETSI
